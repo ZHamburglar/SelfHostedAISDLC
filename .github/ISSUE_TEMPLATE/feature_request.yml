@@ -1,0 +1,78 @@
+name: Feature Request
+description: Propose a new feature or enhancement
+title: "[Feature]: "
+labels: ["feature"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to propose a new feature or enhancement. The more detail you provide, the better the agent can implement it correctly.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Feature summary
+      description: A concise description of what you want to build.
+      placeholder: "e.g. Add an endpoint to the notification-service that sends a welcome email when a new user registers."
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Explain the motivation or use case behind this feature.
+      placeholder: "e.g. Currently new users receive no confirmation after registering, leading to confusion."
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: What does done look like? List the conditions that must be true for this to be complete.
+      placeholder: |
+        - [ ] POST /users triggers a welcome email via notification-service
+        - [ ] Email includes the user's name and a verification link
+        - [ ] Fails gracefully if the email service is unavailable
+    validations:
+      required: true
+
+  - type: textarea
+    id: service
+    attributes:
+      label: Which service(s) are involved?
+      description: Name the microservice(s) this feature touches or requires.
+      placeholder: "e.g. user-service, notification-service"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: complexity
+    attributes:
+      label: Estimated complexity
+      options:
+        - Small — isolated change, single service
+        - Medium — touches multiple files or services
+        - Large — new service or significant refactor
+    validations:
+      required: true
+
+  - type: textarea
+    id: design
+    attributes:
+      label: Suggested approach (optional)
+      description: If you have a preferred implementation approach, describe it here. The agent will follow this if provided.
+      placeholder: "e.g. Use the existing emailClient utility in shared/utils. Add a new sendWelcomeEmail function."
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Any other information, mockups, or references the agent should be aware of.
+    validations:
+      required: false

@@ -1,0 +1,77 @@
+name: Hotfix
+description: Urgent fix needed for a production issue
+title: "[Hotfix]: "
+labels: ["hotfix"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ **Hotfixes are for urgent production issues only.** The agent will treat this with high priority and keep changes minimal and targeted. Do not use this template for general bugs or features.
+
+  - type: textarea
+    id: issue
+    attributes:
+      label: What is broken in production?
+      description: Describe exactly what is failing right now.
+      placeholder: "e.g. The payment-service is throwing an unhandled promise rejection on all POST /checkout requests, causing a 500 for every user attempting to check out."
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: User / business impact
+      description: Who is affected and how severely?
+      placeholder: "e.g. All users are unable to complete purchases. Revenue is blocked."
+    validations:
+      required: true
+
+  - type: textarea
+    id: service
+    attributes:
+      label: Affected service(s)
+      placeholder: "e.g. payment-service"
+    validations:
+      required: true
+
+  - type: textarea
+    id: cause
+    attributes:
+      label: Known or suspected cause
+      description: If you already know what's wrong, describe it here. This helps the agent target the fix precisely.
+      placeholder: "e.g. A recent change to the order model removed the totalAmount field but the checkout handler still references it."
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error logs or stack trace
+      description: Paste the exact error output from production logs.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: fix
+    attributes:
+      label: Suggested fix (optional)
+      description: If you know the fix, describe it so the agent can implement it directly without guessing.
+      placeholder: "e.g. Restore the totalAmount field in the order model, or update the checkout handler to derive it from line items."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Agent constraints for this hotfix
+      description: The agent must follow these rules for hotfix PRs.
+      options:
+        - label: Keep changes minimal — fix only what is broken, nothing else
+          required: true
+        - label: Do not refactor surrounding code
+          required: true
+        - label: Do not introduce new dependencies
+          required: true

@@ -1,0 +1,78 @@
+name: Bug Report
+description: Report a bug or unexpected behaviour in the project
+title: "[Bug]: "
+labels: ["bug"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill out the sections below as thoroughly as possible so the agent can understand and resolve the issue.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: "e.g. The user service returns a 500 error when the email field is missing from the request body."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      placeholder: "e.g. It should return a 400 with a validation error message."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Step by step instructions to reproduce the bug.
+      placeholder: |
+        1. Send a POST request to /users
+        2. Omit the email field in the body
+        3. Observe the response
+    validations:
+      required: true
+
+  - type: textarea
+    id: service
+    attributes:
+      label: Which service is affected?
+      description: Name the specific microservice(s) involved.
+      placeholder: "e.g. user-service, payment-service"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or error output
+      description: Paste any relevant logs, stack traces, or error messages.
+      render: shell
+    validations:
+      required: false
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Low — minor inconvenience, workaround exists
+        - Medium — functionality broken but not blocking
+        - High — blocking a key feature
+        - Critical — data loss or security issue
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else the agent should know before making changes.
+    validations:
+      required: false
