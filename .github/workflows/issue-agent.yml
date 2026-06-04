@@ -4,6 +4,10 @@ on:
   issues:
     types: [labeled]
 
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   agent:
     runs-on: self-hosted  # Must be self-hosted so it can reach LM Studio on your network
