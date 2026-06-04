@@ -10,7 +10,7 @@
  * - Opens a PR using the correct template based on the issue label
  */
 
-const { execFileSync } = require("child_process");
+const { execFileSync, execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
@@ -402,7 +402,9 @@ async function main() {
   console.log(`   Labels: ${labels.join(", ")}`);
 
   // 1. Create a new branch
-  const branchName = `agent/issue-${ISSUE_NUMBER}-${slugify(labels[0] || "fix", 16)}-${slugify(ISSUE_TITLE, 40)}`;
+  const issueNumber = process.env.ISSUE_NUMBER;
+  const runId = process.env.GITHUB_RUN_ID || Date.now();
+  const branchName = `agent/issue-${issueNumber}-${runId}`;
   runGit(["config", "user.name", "Issue Agent"]);
   runGit(["config", "user.email", "agent@github-actions"]);
   runGit(["checkout", "-b", branchName]);
@@ -556,7 +558,7 @@ Rules:
   console.log("\n✅ Changes committed");
 
   // 6. Push the branch
-  runGit(["push", "origin", branchName]);
+  execSync(`git push -u origin ${branchName}`, { stdio: "inherit" });
   console.log(`\n✅ Branch pushed: ${branchName}`);
 
   // 7. Build the PR body from the template + agent notes
