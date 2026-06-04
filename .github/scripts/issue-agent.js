@@ -592,11 +592,16 @@ Rules:
 
   if (!prResponse.ok) {
     const err = await prResponse.text();
+
     if (prResponse.status === 403) {
       throw new Error(
-        `Failed to create PR: 403 — GitHub token is missing pull request write permission. Response: ${err}`
+        `Failed to create PR: 403. GitHub Actions is not allowed to create pull requests in this repository. ` +
+        `Check repository Settings > Actions > General and enable:` +
+        ` "Read and write permissions" and "Allow GitHub Actions to create and approve pull requests". ` +
+        `Response: ${err}`
       );
     }
+
     throw new Error(`Failed to create PR: ${prResponse.status} — ${err}`);
   }
 
