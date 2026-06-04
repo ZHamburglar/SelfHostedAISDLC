@@ -592,6 +592,11 @@ Rules:
 
   if (!prResponse.ok) {
     const err = await prResponse.text();
+    if (prResponse.status === 403) {
+      throw new Error(
+        `Failed to create PR: 403 — GitHub token is missing pull request write permission. Response: ${err}`
+      );
+    }
     throw new Error(`Failed to create PR: ${prResponse.status} — ${err}`);
   }
 
