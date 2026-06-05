@@ -258,6 +258,28 @@ async function postIssueComment(commentBody) {
   }
 }
 
+async function postPRComment(prNumber, commentBody) {
+  if (!GITHUB_TOKEN || !REPO) {
+    console.warn("⚠️  Missing GitHub context; skipping PR comment.");
+    return;
+  }
+
+  const response = await fetch(`https://api.github.com/repos/${REPO}/issues/${prNumber}/comments`, {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + GITHUB_TOKEN,
+      "Content-Type": "application/json",
+      Accept: "application/vnd.github+json",
+    },
+    body: JSON.stringify({ body: commentBody }),
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Failed to comment on PR: ${response.status} — ${err}`);
+  }
+}
+
 function normalizeResponseText(value) {
   if (typeof value === "string") {
     return value.trim() ? value : "";
@@ -611,6 +633,15 @@ Rules:
 
   // 9. Link the PR back to the issue with a comment
   await postIssueComment(`🤖 The Issue Agent has picked up this issue and created a PR: ${pr.html_url}`);
+
+  // 10. Post usage instructions on the PR itself
+  await postPRComment(pr.number, `🤖 **This PR was created by the Issue Agent.**
+
+To request changes, leave a comment starting with \`/fix\` followed by your feedback.
+
+> **Example:** \`/fix The error handling should use a try/catch block instead of a bare promise rejection\`
+
+The agent will read your feedback, update the code, and push new commits to this branch.`);
 
   console.log(`\n🎉 Done! PR created: ${pr.html_url}`);
 }

@@ -1,0 +1,61 @@
+name: PR Fix
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  fix:
+    runs-on: self-hosted
+    if: |
+      github.event.issue.pull_request != null &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
+      startsWith(github.event.comment.body, '/fix')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check LM Studio connectivity
+        env:
+          LM_STUDIO_URL: ${{ secrets.LM_STUDIO_URL }}
+        run: |
+          if [ -z "$LM_STUDIO_URL" ]; then
+            echo "LM_STUDIO_URL is not configured"
+            exit 1
+          fi
+          API_URL="$(node -e "console.log(new URL('/v1/models', process.env.LM_STUDIO_URL).toString())")"
+          echo "Checking LM Studio API at $API_URL"
+          RESPONSE_FILE="/tmp/lmstudio-models-response.txt"
+          if ! curl --silent --show-error --fail --max-time 10 "$API_URL" > "$RESPONSE_FILE"; then
+            echo "LM Studio API check failed for $API_URL"
+            if [ -s "$RESPONSE_FILE" ]; then
+              echo "Response preview:"
+              head -c 500 "$RESPONSE_FILE"
+              echo
+            fi
+            exit 1
+          fi
+          echo "LM Studio API is reachable."
+
+      - name: Run PR Fix Agent
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LM_STUDIO_URL: ${{ secrets.LM_STUDIO_URL }}
+          LM_STUDIO_MODEL: ${{ secrets.LM_STUDIO_MODEL }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          FIX_COMMENT: ${{ github.event.comment.body }}
+          REPO: ${{ github.repository }}
+        run: node .github/scripts/pr-fix.js
