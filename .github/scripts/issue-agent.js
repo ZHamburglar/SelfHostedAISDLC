@@ -32,6 +32,11 @@ const MAX_REPO_STRUCTURE_FILES = 30;
 const MAX_PLAN_PREVIEW = 800;
 const MAX_REPAIR_INPUT = 12000;
 const LM_STUDIO_TIMEOUT_MS = 60000;
+const LM_STAGE_MAX_TOKENS = {
+  planning: 700,
+  drafting: 2200,
+  validation: 2600,
+};
 const ALLOWED_ACTIONS = new Set(["create", "modify", "delete"]);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -316,7 +321,8 @@ function getLMStudioEndpoint() {
   }
 }
 
-async function callLMStudio(systemPrompt, userPrompt) {
+async function callLMStudio(systemPrompt, userPrompt, options = {}) {
+  const maxTokens = Number(options.maxTokens) > 0 ? Number(options.maxTokens) : 1200;
   const endpoint = getLMStudioEndpoint();
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), LM_STUDIO_TIMEOUT_MS);
@@ -334,7 +340,7 @@ async function callLMStudio(systemPrompt, userPrompt) {
         ],
         temperature: 0.1,
         enable_thinking: false,
-        max_tokens: 4096,
+        max_tokens: maxTokens,
       }),
     });
   } catch (err) {
@@ -371,6 +377,15 @@ async function callLMStudio(systemPrompt, userPrompt) {
     throw new Error(`LM Studio response missing usable text in choices[0]: ${bodyPreview}`);
   }
   return content;
+}
+
+async function runLMStudioStage(stageName, systemPrompt, userPrompt, options = {}) {
+  console.log(`\n🧠 [${stageName}] Requesting LM Studio output...`);
+  try {
+    return await callLMStudio(systemPrompt, userPrompt, options);
+  } catch (err) {
+    throw new Error(`Stage "${stageName}" failed: ${err.message}`);
+  }
 }
 
 async function getRepoStructure() {
@@ -448,75 +463,94 @@ async function main() {
   const agentGuidelines = truncateText(getAgentGuidelines(), 4000);
   const issueBody = truncateText(ISSUE_BODY || "No description provided.", 6000);
 
-  // 3. Ask LM Studio what changes to make
-  console.log("\n🧠 Asking LM Studio for a plan...");
-  const systemPrompt = `/no_think
-  You are a senior JavaScript/Node.js developer working on a GitHub repository.
-You will be given an issue and the repository file structure.
-Your job is to:
-1. Understand what needs to be done
-2. Return a JSON object describing the exact file changes needed
+  // 3. Ask LM Studio for a staged plan to reduce prompt/response size
+  const planningSystemPrompt = `You are preparing implementation planning data for an automated coding agent.
+Respond with JSON only. No markdown.
 
-ENDPOINT DOCUMENTATION RULE: If any of your changes create or modify API endpoints (REST routes, Express handlers, etc.), you MUST include a "modify" action for README.md in your changes array. Update the "## API Endpoints" section in the README with the new or changed endpoints. If the section does not exist, add it. Each endpoint entry should include: HTTP method, path, description, request body (if any), and response shape. Preserve all other existing README content exactly as-is.
-
-IMPORTANT:
-- Your output is parsed directly with JSON.parse().
-- Return ONLY valid JSON. No markdown, no code fences, no prose, no explanation.
-- Any text before or after the JSON will fail the workflow.
-- Keep the response concise and focused. Prefer at most 5 file changes unless absolutely necessary.
-
-JSON format:
+Schema:
 {
-  "summary": "Brief description of what you're doing",
-  "changes": [
-    {
-      "action": "create" | "modify" | "delete",
-      "path": "relative/file/path.js",
-      "content": "full new file content as a string (for create/modify)",
-      "reason": "why this change is needed"
-    }
-  ],
-  "pr_title": "A concise PR title",
-  "pr_body_notes": "Extra notes to add to the PR description"
+  "issue_summary": "string",
+  "implementation_goal": "string",
+  "target_files": ["relative/path.ext"],
+  "constraints": ["string"]
 }`;
 
-  const userPrompt = `Issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}
+  const planningUserPrompt = `Issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}
 
 Description:
 ${issueBody}
 
 Labels: ${labels.join(", ")}
 
-Agent Guidelines (you MUST follow all rules in this document):
-${agentGuidelines || "No guidelines found."}
-
 Repository file structure:
 ${repoStructure}
+
+Return concise planning JSON only.`;
+
+  let planningResult;
+  try {
+    const rawPlanning = await runLMStudioStage(
+      "planning",
+      planningSystemPrompt,
+      planningUserPrompt,
+      { maxTokens: LM_STAGE_MAX_TOKENS.planning }
+    );
+    planningResult = parsePlanResponse(rawPlanning);
+  } catch (err) {
+    console.error("❌ Planning stage failed:", err.message);
+    process.exit(1);
+  }
+
+  const draftingSystemPrompt = `You are a senior JavaScript/Node.js developer generating a file change plan for a GitHub issue.
+
+ENDPOINT DOCUMENTATION RULE: If any changes create or modify API endpoints (REST routes, Express handlers, etc.), include a "modify" action for README.md in "changes". Update or add "## API Endpoints" and include method, path, description, request body (if any), and response shape.
+
+Respond ONLY with valid JSON matching this schema:
+{
+  "summary": "string",
+  "changes": [
+    {
+      "action": "create" | "modify" | "delete",
+      "path": "relative/file/path",
+      "content": "string required for create/modify",
+      "reason": "string"
+    }
+  ],
+  "pr_title": "string",
+  "pr_body_notes": "string"
+}
+
+Keep output concise. Prefer no more than 5 changes unless required.`;
+
+  const draftingUserPrompt = `Issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}
+
+Labels: ${labels.join(", ")}
+
+Planning data:
+${JSON.stringify(planningResult)}
+
+Agent Guidelines (you MUST follow all rules in this document):
+${agentGuidelines || "No guidelines found."}
 
 Current README.md:
 ${readme || "No README found."}
 
-Keep the plan concise and include only essential file edits.
-Return JSON only. No markdown, no code fences, and no explanation text.`;
+Return JSON only.`;
 
-
-  let rawPlan;
+  let draftedPlan;
   try {
-    rawPlan = await callLMStudio(systemPrompt, userPrompt);
+    draftedPlan = await runLMStudioStage(
+      "drafting",
+      draftingSystemPrompt,
+      draftingUserPrompt,
+      { maxTokens: LM_STAGE_MAX_TOKENS.drafting }
+    );
   } catch (err) {
-    console.error("❌ LM Studio request failed:", err.message);
+    console.error("❌ Drafting stage failed:", err.message);
     process.exit(1);
   }
 
-  let plan;
-  try {
-    plan = validatePlanShape(parsePlanResponse(rawPlan));
-  } catch (err) {
-    console.error("❌ Failed to parse/validate plan JSON:", err.message);
-    console.error(`Raw model output preview: ${truncateText(rawPlan, MAX_PLAN_PREVIEW)}`);
-    console.log("🔧 Attempting one repair pass...");
-
-    const repairSystemPrompt = `You convert model output into strict JSON.
+  const validationSystemPrompt = `You convert model output into strict JSON.
 Return only valid JSON that exactly matches this schema and nothing else:
 {
   "summary": "string",
@@ -534,17 +568,24 @@ Return only valid JSON that exactly matches this schema and nothing else:
 Rules:
 - Do not include markdown or code fences.
 - Do not include explanations.
-- Preserve intent from the original response.`;
-    const repairUserPrompt = `Convert this response to valid JSON only:\n\n${truncateText(rawPlan, MAX_REPAIR_INPUT)}`;
+- Preserve intent from the original response.
+- Keep "changes" scoped and minimal.`;
 
-    try {
-      const repairedPlan = await callLMStudio(repairSystemPrompt, repairUserPrompt);
-      plan = validatePlanShape(parsePlanResponse(repairedPlan));
-      console.log("✅ Repair pass succeeded.");
-    } catch (repairErr) {
-      console.error("❌ Repair attempt failed:", repairErr.message);
-      process.exit(1);
-    }
+  const validationUserPrompt = `Convert this response to valid plan JSON only:\n\n${truncateText(draftedPlan, MAX_REPAIR_INPUT)}`;
+
+  let plan;
+  try {
+    const validatedPlan = await runLMStudioStage(
+      "validation",
+      validationSystemPrompt,
+      validationUserPrompt,
+      { maxTokens: LM_STAGE_MAX_TOKENS.validation }
+    );
+    plan = validatePlanShape(parsePlanResponse(validatedPlan));
+  } catch (err) {
+    console.error("❌ Validation stage failed:", err.message);
+    console.error(`Drafted model output preview: ${truncateText(draftedPlan, MAX_PLAN_PREVIEW)}`);
+    process.exit(1);
   }
   console.log(`\n📋 Plan: ${plan.summary || "No summary provided."}`);
 
