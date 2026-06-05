@@ -11,6 +11,37 @@ To configure the runner for this project, you need to set up specific Actions se
 
 > **Note**: Check your LM Studio server logs for the active model name and the port it is listening on to ensure these values are correct.
 
+### GitHub Actions Permissions
+
+Enable GitHub Actions to create pull requests in repo settings:
+
+* Repo Settings → Actions → General
+* Under Workflow permissions:
+    * set Read and write permissions
+* Under Pull requests:
+    * enable Allow GitHub Actions to create and approve pull requests
+
+That is the required fix for this failure.
+
+### LM Studio Configuration
+
+#### Model Context Lengths and Sizes
+
+* **7B Models:** Recommended for machines with 16GB RAM. Use a context window of 4096 tokens.
+* **13B Models:** Recommended for machines with 32GB+ RAM. Use a context window of 8192 tokens.
+
+#### Temperature Setting
+
+Set temperature to 0.1 to minimize hallucinations and ensure deterministic code generation.
+
+#### Prompt Engineering (/no_think)
+
+To disable chain-of-thought reasoning, add `/no_think` to your prompt or toggle off `no_think` in the inference tab.
+
+#### Max Concurrent Predictions
+
+Set to 1 for machines with <16GB RAM, and 2 for machines with >32GB RAM.
+
 ## Agent Flow
 
 The automation agents in this repository are triggered based on GitHub issue labels. Here is how the trigger logic works:
