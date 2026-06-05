@@ -31,7 +31,7 @@ const labels = (ISSUE_LABELS || "").split(",").map((l) => l.trim().toLowerCase()
 const MAX_REPO_STRUCTURE_FILES = 30;
 const MAX_PLAN_PREVIEW = 800;
 const MAX_REPAIR_INPUT = 12000;
-const LM_STUDIO_TIMEOUT_MS = 60000;
+const LM_STUDIO_TIMEOUT_MS = (Number(process.env.LM_STUDIO_TIMEOUT_MS) || 180000);
 const ALLOWED_ACTIONS = new Set(["create", "modify", "delete"]);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
