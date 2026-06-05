@@ -32,24 +32,75 @@ jobs:
       - name: Check LM Studio connectivity
         env:
           LM_STUDIO_URL: ${{ secrets.LM_STUDIO_URL }}
+          LM_STUDIO_MODEL: ${{ secrets.LM_STUDIO_MODEL }}
         run: |
           if [ -z "$LM_STUDIO_URL" ]; then
             echo "LM_STUDIO_URL is not configured"
             exit 1
           fi
-          API_URL="$(node -e "console.log(new URL('/v1/models', process.env.LM_STUDIO_URL).toString())")"
-          echo "Checking LM Studio API at $API_URL"
-          RESPONSE_FILE="/tmp/lmstudio-models-response.txt"
-          if ! curl --silent --show-error --fail --max-time 10 "$API_URL" > "$RESPONSE_FILE"; then
-            echo "LM Studio API check failed for $API_URL"
-            if [ -s "$RESPONSE_FILE" ]; then
+          if [ -z "$LM_STUDIO_MODEL" ]; then
+            echo "LM_STUDIO_MODEL is not configured"
+            exit 1
+          fi
+
+          MODELS_URL="$(node -e "console.log(new URL('/v1/models', process.env.LM_STUDIO_URL).toString())")"
+          CHAT_URL="$(node -e "console.log(new URL('/v1/chat/completions', process.env.LM_STUDIO_URL).toString())")"
+
+          echo "Checking LM Studio models API at $MODELS_URL"
+          MODELS_RESPONSE_FILE="/tmp/lmstudio-models-response.txt"
+          export MODELS_RESPONSE_FILE
+          if ! curl --silent --show-error --fail --max-time 10 "$MODELS_URL" > "$MODELS_RESPONSE_FILE"; then
+            echo "LM Studio models check failed for $MODELS_URL"
+            if [ -s "$MODELS_RESPONSE_FILE" ]; then
               echo "Response preview:"
-              head -c 500 "$RESPONSE_FILE"
+              head -c 500 "$MODELS_RESPONSE_FILE"
               echo
             fi
             exit 1
           fi
-          echo "LM Studio API is reachable."
+
+          node <<'NODE'
+          const fs = require("fs");
+          const responsePath = process.env.MODELS_RESPONSE_FILE;
+          const model = process.env.LM_STUDIO_MODEL;
+          const raw = fs.readFileSync(responsePath, "utf8");
+          let parsed;
+          try {
+            parsed = JSON.parse(raw);
+          } catch (err) {
+            throw new Error(`LM Studio models response was not valid JSON: ${err.message}`);
+          }
+
+          const models = Array.isArray(parsed?.data) ? parsed.data : [];
+          const modelIds = models
+            .map((entry) => (entry && typeof entry.id === "string" ? entry.id : ""))
+            .filter(Boolean);
+
+          if (!modelIds.includes(model)) {
+            throw new Error(
+              `Configured LM_STUDIO_MODEL "${model}" was not found in /v1/models. Available models: ${modelIds.join(", ") || "(none)"}`
+            );
+          }
+
+          console.log(`Configured model found in /v1/models: ${model}`);
+          NODE
+
+          echo "Checking LM Studio chat completions at $CHAT_URL for model $LM_STUDIO_MODEL"
+          CHAT_REQUEST_BODY="$(node -e "console.log(JSON.stringify({model: process.env.LM_STUDIO_MODEL, messages: [{ role: 'user', content: 'ping' }], temperature: 0, max_tokens: 4, enable_thinking: false}))")"
+          CHAT_RESPONSE_FILE="/tmp/lmstudio-chat-response.txt"
+          HTTP_CODE="$(curl --silent --show-error --max-time 20 --output "$CHAT_RESPONSE_FILE" --write-out "%{http_code}" -H "Content-Type: application/json" -d "$CHAT_REQUEST_BODY" "$CHAT_URL")"
+
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "LM Studio chat preflight failed for $CHAT_URL with model $LM_STUDIO_MODEL (HTTP $HTTP_CODE)"
+            if [ -s "$CHAT_RESPONSE_FILE" ]; then
+              echo "Response preview:"
+              head -c 500 "$CHAT_RESPONSE_FILE"
+              echo
+            fi
+            exit 1
+          fi
+
+          echo "LM Studio models and chat preflight checks passed."
 
       - name: Run Issue Agent
         env:
