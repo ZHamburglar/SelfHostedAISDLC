@@ -32,10 +32,11 @@ const MAX_REPO_STRUCTURE_FILES = 30;
 const MAX_PLAN_PREVIEW = 800;
 const MAX_REPAIR_INPUT = 12000;
 const LM_STUDIO_TIMEOUT_MS = 60000;
+const LM_DEFAULT_STAGE_MAX_TOKENS = 1200;
 const LM_STAGE_MAX_TOKENS = {
   planning: 700,
   drafting: 2200,
-  validation: 2600,
+  validation: 1800,
 };
 const ALLOWED_ACTIONS = new Set(["create", "modify", "delete"]);
 
@@ -178,8 +179,8 @@ function extractJsonCandidates(rawText) {
   return candidates;
 }
 
-function parsePlanResponse(rawPlan) {
-  const candidates = extractJsonCandidates(rawPlan);
+function parseJsonResponse(rawResponse) {
+  const candidates = extractJsonCandidates(rawResponse);
   if (candidates.length === 0) {
     throw new Error("No JSON object or array could be extracted from model output");
   }
@@ -322,7 +323,11 @@ function getLMStudioEndpoint() {
 }
 
 async function callLMStudio(systemPrompt, userPrompt, options = {}) {
-  const maxTokens = Number(options.maxTokens) > 0 ? Number(options.maxTokens) : 1200;
+  const parsedMaxTokens = Number(options.maxTokens);
+  const maxTokens =
+    Number.isFinite(parsedMaxTokens) && parsedMaxTokens > 0
+      ? parsedMaxTokens
+      : LM_DEFAULT_STAGE_MAX_TOKENS;
   const endpoint = getLMStudioEndpoint();
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), LM_STUDIO_TIMEOUT_MS);
@@ -469,10 +474,10 @@ Respond with JSON only. No markdown.
 
 Schema:
 {
-  "issue_summary": "string",
-  "implementation_goal": "string",
-  "target_files": ["relative/path.ext"],
-  "constraints": ["string"]
+  "issue_summary": "string (one-sentence issue summary)",
+  "implementation_goal": "string (what the implementation should achieve)",
+  "target_files": ["relative/path.ext (most likely files to touch)"],
+  "constraints": ["string (limits/rules the implementation must respect)"]
 }`;
 
   const planningUserPrompt = `Issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}
@@ -495,7 +500,7 @@ Return concise planning JSON only.`;
       planningUserPrompt,
       { maxTokens: LM_STAGE_MAX_TOKENS.planning }
     );
-    planningResult = parsePlanResponse(rawPlanning);
+    planningResult = parseJsonResponse(rawPlanning);
   } catch (err) {
     console.error("❌ Planning stage failed:", err.message);
     process.exit(1);
@@ -550,7 +555,7 @@ Return JSON only.`;
     process.exit(1);
   }
 
-  const validationSystemPrompt = `You convert model output into strict JSON.
+  const conversionSystemPrompt = `You convert model output into strict JSON.
 Return only valid JSON that exactly matches this schema and nothing else:
 {
   "summary": "string",
@@ -571,17 +576,17 @@ Rules:
 - Preserve intent from the original response.
 - Keep "changes" scoped and minimal.`;
 
-  const validationUserPrompt = `Convert this response to valid plan JSON only:\n\n${truncateText(draftedPlan, MAX_REPAIR_INPUT)}`;
+  const conversionUserPrompt = `Convert this response to valid plan JSON only:\n\n${truncateText(draftedPlan, MAX_REPAIR_INPUT)}`;
 
   let plan;
   try {
     const validatedPlan = await runLMStudioStage(
       "validation",
-      validationSystemPrompt,
-      validationUserPrompt,
+      conversionSystemPrompt,
+      conversionUserPrompt,
       { maxTokens: LM_STAGE_MAX_TOKENS.validation }
     );
-    plan = validatePlanShape(parsePlanResponse(validatedPlan));
+    plan = validatePlanShape(parseJsonResponse(validatedPlan));
   } catch (err) {
     console.error("❌ Validation stage failed:", err.message);
     console.error(`Drafted model output preview: ${truncateText(draftedPlan, MAX_PLAN_PREVIEW)}`);
