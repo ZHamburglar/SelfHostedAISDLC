@@ -31,12 +31,16 @@ const labels = (ISSUE_LABELS || "").split(",").map((l) => l.trim().toLowerCase()
 const MAX_REPO_STRUCTURE_FILES = 30;
 const MAX_PLAN_PREVIEW = 800;
 const MAX_REPAIR_INPUT = 12000;
-const LM_STUDIO_TIMEOUT_MS = (Number(process.env.LM_STUDIO_TIMEOUT_MS) || 180000);
+function parsePositiveIntEnv(name, fallback) {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
+}
+const LM_STUDIO_TIMEOUT_MS = parsePositiveIntEnv("LM_STUDIO_TIMEOUT_MS", 900000);
 const LM_DEFAULT_STAGE_MAX_TOKENS = 1200;
 const LM_STAGE_MAX_TOKENS = {
-  planning: 700,
-  drafting: 2200,
-  validation: 1800,
+  planning: parsePositiveIntEnv("LM_STUDIO_PLANNING_MAX_TOKENS", 700),
+  drafting: parsePositiveIntEnv("LM_STUDIO_DRAFTING_MAX_TOKENS", 900),
+  validation: parsePositiveIntEnv("LM_STUDIO_VALIDATION_MAX_TOKENS", 1800),
 };
 const ALLOWED_ACTIONS = new Set(["create", "modify", "delete"]);
 
