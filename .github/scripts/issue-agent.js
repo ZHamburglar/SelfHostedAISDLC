@@ -31,6 +31,7 @@ const labels = (ISSUE_LABELS || "").split(",").map((l) => l.trim().toLowerCase()
 const MAX_REPO_STRUCTURE_FILES = 30;
 const MAX_PLAN_PREVIEW = 800;
 const MAX_REPAIR_INPUT = 12000;
+const LM_STUDIO_TIMEOUT_MS = 60000;
 const ALLOWED_ACTIONS = new Set(["create", "modify", "delete"]);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -317,11 +318,14 @@ function getLMStudioEndpoint() {
 
 async function callLMStudio(systemPrompt, userPrompt) {
   const endpoint = getLMStudioEndpoint();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), LM_STUDIO_TIMEOUT_MS);
   let response;
   try {
     response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
       body: JSON.stringify({
         model: LM_STUDIO_MODEL,
         messages: [
@@ -334,7 +338,13 @@ async function callLMStudio(systemPrompt, userPrompt) {
       }),
     });
   } catch (err) {
-    throw new Error(`LM Studio fetch failed: ${err.message}`);
+    const detail =
+      err?.name === "AbortError"
+        ? `request timed out after ${LM_STUDIO_TIMEOUT_MS}ms`
+        : (err?.message || String(err));
+    throw new Error(`LM Studio fetch failed for ${endpoint} using model "${LM_STUDIO_MODEL}": ${detail}`);
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   const rawBody = await response.text();
