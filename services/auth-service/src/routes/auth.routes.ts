@@ -1,13 +1,9 @@
 import { Router } from 'express';
+import { register, login } from '../controllers/auth.controller';
 
 const router = Router();
 
-router.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
-});
-
-router.get('/hello-world', (req, res) => {
-  res.status(200).json({ message: 'Hello World' });
-});
+router.post('/register', register);
+router.post('/login', login);
 
 export default router;
