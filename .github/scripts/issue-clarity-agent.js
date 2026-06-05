@@ -1,5 +1,20 @@
 #!/usr/bin/env node
 
+/**
+ * Issue Clarity Agent
+ *
+ * Triggered automatically when a new GitHub issue is opened.
+ * - Reads the issue title and body
+ * - Scans backend services to determine whether testing suggestions are needed
+ * - Calls LM Studio to review the issue for clarity, specificity, and completeness
+ * - Posts a comment with actionable suggestions and checkboxes for the author to review
+ *
+ * From there the author can:
+ *   - Check boxes and reply "apply" or "/apply" to rewrite the issue (Issue Polish Agent)
+ *   - Reply "refine: <feedback>" or "/refine: <feedback>" to get a revised review before applying (Issue Refine Agent)
+ *   - Add a bug, feature, or hotfix label to hand the issue off to the coder as-is (Issue Coder Agent)
+ */
+
 const fs = require("fs");
 const path = require("path");
 
@@ -184,18 +199,23 @@ ${serviceContext || "No backend services found."}`;
 
   let comment;
 
+  const refineHint = `> 💬 **Not happy with these suggestions?** Reply \`refine: <your feedback>\` or \`/refine: <your feedback>\` to get a revised review before applying.
+> Example: \`refine: drop the testing suggestion, we already have full coverage\``;
+
   if (review.quality === "good") {
     comment = `### ✅ Issue Review
 
 ${review.summary}
 
-This issue looks good! Select any suggestions to apply, or leave all unchecked and just add a label to hand it off to the agent.
+This issue looks good! Select any suggestions to apply, or leave all unchecked and add a label to hand it off to the coder as-is.
 
 **Suggestions:**
 - [ ] Apply all
 ${checkboxes}
 
-Check the boxes above then reply with **apply** to update the issue.
+Check the boxes above then reply with **apply** or **/apply** to update the issue.
+
+${refineHint}
 
 ${hiddenData}`;
   } else {
@@ -207,7 +227,9 @@ ${review.summary}
 - [ ] Apply all
 ${checkboxes}
 
-Check the boxes above then reply with **apply** to update the issue, or add a \`bug\`, \`feature\`, or \`hotfix\` label to skip and hand it off to the agent as-is.
+Check the boxes above then reply with **apply** or **/apply** to update the issue, or add a \`bug\`, \`feature\`, or \`hotfix\` label to skip and hand it off to the coder as-is.
+
+${refineHint}
 
 ${hiddenData}`;
   }

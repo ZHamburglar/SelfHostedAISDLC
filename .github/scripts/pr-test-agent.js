@@ -1,5 +1,16 @@
 #!/usr/bin/env node
 
+/**
+ * PR Test Agent
+ *
+ * Triggered automatically when a pull request targeting main is opened or updated,
+ * but only for branches prefixed with "agent/" (i.e. PRs created by the Issue Coder Agent).
+ * - Discovers all backend services that have a test script in their package.json
+ * - Runs npm install and npm test for each service
+ * - Posts a test results summary table as a PR comment, with collapsible failure output
+ * - Exits with a non-zero code if any tests fail, blocking the merge
+ */
+
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');

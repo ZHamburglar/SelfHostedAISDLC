@@ -1,20 +1,16 @@
-name: Issue Refine
+name: Issue Clarity Agent
 
 on:
-  issue_comment:
-    types: [created]
+  issues:
+    types: [opened]
 
 permissions:
-  contents: read
   issues: write
+  contents: read
 
 jobs:
-  refine:
+  review:
     runs-on: self-hosted
-    if: |
-      github.event.issue.pull_request == null &&
-      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
-      (startsWith(github.event.comment.body, 'refine') || startsWith(github.event.comment.body, '/refine'))
 
     steps:
       - name: Checkout repository
@@ -25,7 +21,7 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Refine Issue Review
+      - name: Run Issue Clarity Agent
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LM_STUDIO_URL: ${{ secrets.LM_STUDIO_URL }}
@@ -33,6 +29,5 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
-          REFINE_COMMENT: ${{ github.event.comment.body }}
           REPO: ${{ github.repository }}
-        run: node .github/scripts/issue-refine.js
+        run: node .github/scripts/issue-clarity-agent.js

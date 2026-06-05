@@ -1,4 +1,4 @@
-name: Issue Apply
+name: Issue Refine Agent
 
 on:
   issue_comment:
@@ -9,13 +9,12 @@ permissions:
   issues: write
 
 jobs:
-  apply:
+  refine:
     runs-on: self-hosted
-    # Only run if the comment is "apply" and posted by the repo owner or collaborator
     if: |
       github.event.issue.pull_request == null &&
       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
-      (startsWith(github.event.comment.body, 'apply') || startsWith(github.event.comment.body, '/apply'))
+      (startsWith(github.event.comment.body, 'refine') || startsWith(github.event.comment.body, '/refine'))
 
     steps:
       - name: Checkout repository
@@ -26,11 +25,14 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Apply Selected Suggestions
+      - name: Run Issue Refine Agent
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LM_STUDIO_URL: ${{ secrets.LM_STUDIO_URL }}
           LM_STUDIO_MODEL: ${{ secrets.LM_STUDIO_MODEL }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          REFINE_COMMENT: ${{ github.event.comment.body }}
           REPO: ${{ github.repository }}
-        run: node .github/scripts/issue-apply.js
+        run: node .github/scripts/issue-refine-agent.js

@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 
 /**
- * PR Fix Agent
+ * PR Revision Agent
  *
- * Triggered by a /fix comment on an agent-created PR.
- * - Fetches the PR branch, current diff, and all prior /fix comments
- * - Calls LM Studio with that context to produce a correction plan
- * - Applies changes, commits, and pushes to the existing PR branch
- * - Posts a summary comment on the PR
+ * Triggered when a /fix comment is left on an agent-created PR by an owner, member, or collaborator.
+ * - Fetches the current PR branch, the full git diff vs base, and all prior /fix comment history
+ * - Calls LM Studio with that context to produce a targeted correction plan
+ * - Applies the planned file changes to the existing PR branch, commits, and pushes
+ * - Posts a comment on the PR summarizing what was changed and why
+ *
+ * Use this to iterate on the agent's work without opening a new PR.
+ * Example: "/fix The error handler should return 400, not 500, for validation errors"
  */
 
 const { execFileSync, execSync } = require("child_process");

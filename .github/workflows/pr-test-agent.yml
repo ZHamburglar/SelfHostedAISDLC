@@ -1,4 +1,4 @@
-name: Agent Verify
+name: PR Test Agent
 
 on:
   pull_request:
@@ -22,10 +22,10 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Run service tests
+      - name: Run PR Test Agent
         id: tests
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
-        run: node .github/scripts/agent-verify.js
+        run: node .github/scripts/pr-test-agent.js

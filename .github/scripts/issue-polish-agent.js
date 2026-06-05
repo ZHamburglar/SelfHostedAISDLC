@@ -1,5 +1,17 @@
 #!/usr/bin/env node
 
+/**
+ * Issue Polish Agent
+ *
+ * Triggered when an issue comment starts with "apply" or "/apply".
+ * - Finds the most recent Issue Clarity Agent (or Refine Agent) review comment to extract suggestions
+ * - Determines which suggestion checkboxes the author checked
+ * - Calls LM Studio to rewrite the issue title and body applying only the selected suggestions
+ * - Updates the issue in place with the improved content
+ *
+ * After polishing, add a bug, feature, or hotfix label to hand the issue off to the Issue Coder Agent.
+ */
+
 const {
   GITHUB_TOKEN,
   LM_STUDIO_URL,
