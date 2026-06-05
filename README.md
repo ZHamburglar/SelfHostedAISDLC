@@ -44,32 +44,43 @@ Set to 1 for machines with <16GB RAM, and 2 for machines with >32GB RAM.
 
 ## Agent Flow
 
-The automation agents in this repository are triggered based on GitHub issue labels. Here is how the trigger logic works:
+The automation agents in this repository are triggered based on GitHub issue labels and events. Here is how the trigger logic works:
 
 - **Issue Review Agent**: Triggers when a new issue is opened with the label `needs-review`.
 - **Issue Refine Agent**: Triggers when an issue is labeled `bug`.
+- **Apply Agent**: Triggers when a comment starts with `/apply`.
+- **Verify Agent**: Triggers on PR creation.
+- **Fix Agent**: Triggers when a comment starts with `/fix`.
 
 Tags like `feature` or `bug` determine which agent performs work. For example, applying the `bug` label initiates the refinement process, while `needs-review` starts the review process.
 
 ### Visual Flow
 
-The following Mermaid diagram illustrates the agent trigger logic:
+The following Mermaid diagram illustrates the full agent lifecycle, triggers, and approval logic:
 
 ```mermaid
 graph TD
-    A[Start] --> B{Check Labels}
-    B -->|Label is 'needs-review'| C[Issue Review Agent]
-    B -->|Label is 'bug'| D[Issue Refine Agent]
-    C --> E[End]
-    D --> E
+    subgraph Issue Lifecycle
+        A[Issue Opened] --> B{Check Labels}
+        B -->|Label: needs-review| C[Reviewer Agent]
+        B -->|Label: bug| D[Refine Agent]
+        C --> E[Review Complete]
+        D --> F[Refinement Complete]
+        E --> G{User Action}
+        F --> G
+        G -->|Comment: /apply| H[Apply Agent]
+        H --> I[PR Created]
+    end
+
+    subgraph PR Lifecycle
+        I --> J[Verify Agent]
+        J --> K{CI Status}
+        K -->|CI Fails| L[Fix Agent]
+        K -->|CI Passes| M{Approval Logic}
+        L --> N[Fix Applied]
+        N --> J
+        M -->|No /fix comment within 24h| O[Auto-Approve]
+        M -->|Comment: /fix| P[Manual Fix Triggered]
+        O --> Q[PR Merged]
+    end
 ```
-
-## Configuration
-
-The behavior of the agents can be further tuned by modifying the scripts located in `.github/scripts/`. 
-
-- **`issue-reviewer.js`**: Handles the logic for reviewing issues.
-- **`issue-refine.js`**: Handles the logic for refining bug reports.
-- **`issue-agent.js`**: Core agent utilities.
-
-Ensure that any changes to these scripts align with the environment variables defined in the Setup section.
