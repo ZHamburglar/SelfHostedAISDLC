@@ -15,7 +15,7 @@ jobs:
     if: |
       github.event.issue.pull_request == null &&
       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
-      startsWith(github.event.comment.body, 'apply')
+      (startsWith(github.event.comment.body, 'apply') || startsWith(github.event.comment.body, '/apply'))
 
     steps:
       - name: Checkout repository
