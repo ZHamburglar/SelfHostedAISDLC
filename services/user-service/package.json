@@ -1,6 +1,6 @@
 {
   "name": "user-service",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "User service for SelfHostedAISDLC",
   "main": "dist/index.js",
   "scripts": {
